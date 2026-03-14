@@ -3,15 +3,18 @@
 	"version": "0.1.0",
 	"description": "High-performance screen streaming from macOS to Windows over Tailscale",
 	"type": "module",
+	"main": "dist/client/main.js",
 	"engines": {
 		"node": ">=20.0.0"
 	},
 	"scripts": {
 		"build": "tsup",
 		"build:server": "tsup src/server/index.ts --format esm --dts --out-dir dist/server",
-		"build:client": "tsup src/client/main.ts src/client/preload.ts --format esm --out-dir dist/client --external electron && tsup src/client/renderer.ts --format iife --out-dir dist/client",
+		"build:client": "tsup src/client/main.ts src/client/preload.ts --format esm --out-dir dist/client --external electron && tsup src/client/renderer.ts --format iife --out-dir dist/client && node scripts/copy-client-assets.mjs",
 		"dev": "tsx src/server/index.ts",
 		"start:client": "electron dist/client/main.js",
+		"pack": "npm run build:client && electron-builder --dir",
+		"dist:win": "npm run build:client && electron-builder --win --x64",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"lint": "biome check src/ tests/",
@@ -31,10 +34,32 @@
 		"@types/node": "^22.0.0",
 		"@types/ws": "^8.5.0",
 		"electron": "^33.0.0",
+		"electron-builder": "^26.8.1",
 		"tsup": "^8.3.0",
 		"tsx": "^4.19.0",
 		"typescript": "^5.7.0",
 		"vitest": "^2.1.0"
+	},
+	"build": {
+		"appId": "co.templars.macstream",
+		"productName": "MacStream",
+		"directories": {
+			"output": "release"
+		},
+		"files": [
+			"dist/client/**/*",
+			"package.json"
+		],
+		"win": {
+			"target": [
+				{
+					"target": "portable",
+					"arch": [
+						"x64"
+					]
+				}
+			]
+		}
 	},
 	"license": "MIT"
 }

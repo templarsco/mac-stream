@@ -8,3 +8,4 @@ coverage/
 .turbo/
 native/input-agent/.build/
 native/input-agent/.swiftpm/
+release/
