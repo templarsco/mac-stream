@@ -10,6 +10,13 @@ declare global {
 
 const api = window.macstream;
 
+if (!api) {
+	const msg = '[MacStream] FATAL: window.macstream is undefined — preload script failed to load';
+	console.error(msg);
+	document.title = 'MacStream — PRELOAD ERROR';
+	throw new Error(msg);
+}
+
 // --- DOM Elements ---
 
 function requireElement<T extends HTMLElement>(id: string): T {

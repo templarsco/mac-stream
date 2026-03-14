@@ -3,16 +3,16 @@
 	"version": "0.1.0",
 	"description": "High-performance screen streaming from macOS to Windows over Tailscale",
 	"type": "module",
-	"main": "dist/client/main.js",
+	"main": "dist/client/main.cjs",
 	"engines": {
 		"node": ">=20.0.0"
 	},
 	"scripts": {
 		"build": "tsup",
 		"build:server": "tsup src/server/index.ts --format esm --dts --out-dir dist/server",
-		"build:client": "tsup src/client/main.ts src/client/preload.ts --format esm --out-dir dist/client --external electron && tsup src/client/renderer.ts --format iife --out-dir dist/client && node scripts/copy-client-assets.mjs",
+		"build:client": "tsup --config tsup.client.ts && node scripts/copy-client-assets.mjs",
 		"dev": "tsx src/server/index.ts",
-		"start:client": "electron dist/client/main.js",
+		"start:client": "electron dist/client/main.cjs",
 		"pack": "npm run build:client && electron-builder --dir",
 		"dist:win": "npm run build:client && electron-builder --win --x64",
 		"test": "vitest run",

@@ -1,5 +1,4 @@
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { BrowserWindow, app, ipcMain } from 'electron';
 import {
 	type ClipboardUpdateMessage,
@@ -11,8 +10,8 @@ import {
 import { ClipboardSync } from './clipboard.js';
 import { ConnectionManager } from './connection.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// CJS globals — available at runtime in the tsup CJS bundle
+declare const __dirname: string;
 
 let mainWindow: BrowserWindow | null = null;
 let clipboardSync: ClipboardSync | null = null;
@@ -44,7 +43,7 @@ function createWindow(): void {
 		title: 'MacStream',
 		backgroundColor: '#0a0a0a',
 		webPreferences: {
-			preload: path.join(__dirname, 'preload.js'),
+			preload: path.join(__dirname, 'preload.cjs'),
 			contextIsolation: true,
 			nodeIntegration: false,
 			sandbox: false,
@@ -52,6 +51,9 @@ function createWindow(): void {
 	});
 
 	mainWindow.loadFile(path.join(__dirname, 'index.html'));
+
+	// Open DevTools for debugging (detached so it doesn't resize the stream view)
+	mainWindow.webContents.openDevTools({ mode: 'detach' });
 
 	clipboardSync = new ClipboardSync({
 		sendClipboard: (content: string) => {
