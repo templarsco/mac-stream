@@ -154,6 +154,7 @@ export class FFmpegManager extends EventEmitter {
 		this.autoRestart = true;
 
 		const args = this.buildArgs();
+		this.emit('log', `ffmpeg ${args.join(' ')}`);
 		const proc = this.spawnFn('ffmpeg', args, {
 			stdio: ['ignore', 'ignore', 'pipe'],
 		});
@@ -259,8 +260,12 @@ export class FFmpegManager extends EventEmitter {
 		const frameMatch = FRAME_REGEX.exec(data);
 		const fpsMatch = FPS_REGEX.exec(data);
 
-		// Only emit stats when we have at least frame + fps (progress line)
+		// If not a stats progress line, emit as log for diagnostics
 		if (!frameMatch || !fpsMatch) {
+			const trimmed = data.trim();
+			if (trimmed) {
+				this.emit('log', trimmed);
+			}
 			return;
 		}
 

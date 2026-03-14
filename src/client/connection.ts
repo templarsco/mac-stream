@@ -85,7 +85,7 @@ export class ConnectionManager {
 
 		if (this.wsClient) {
 			this.wsClient.removeAllListeners();
-			this.wsClient.close();
+			this.wsClient.terminate();
 			this.wsClient = null;
 		}
 
@@ -121,7 +121,7 @@ export class ConnectionManager {
 
 		if (this.wsClient) {
 			this.wsClient.removeAllListeners();
-			this.wsClient.close();
+			this.wsClient.terminate();
 			this.wsClient = null;
 		}
 

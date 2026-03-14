@@ -55,6 +55,9 @@ const wsMocks = vi.hoisted(() => {
 			this.readyState = MockWebSocket.CLOSED;
 			this.emit('close');
 		});
+		terminate = vi.fn(() => {
+			this.readyState = MockWebSocket.CLOSED;
+		});
 
 		constructor(url: string) {
 			super();
@@ -271,7 +274,7 @@ describe('ConnectionManager', () => {
 		harness.manager.disconnect();
 
 		expect(receiver.stop).toHaveBeenCalledOnce();
-		expect(ws.close).toHaveBeenCalledOnce();
+		expect(ws.terminate).toHaveBeenCalledOnce();
 		expectLatestStatus(harness, 'disconnected');
 	});
 
@@ -550,7 +553,7 @@ describe('ConnectionManager', () => {
 		harness.manager.dispose();
 		harness.manager.dispose();
 
-		expect(ws.close).toHaveBeenCalled();
+		expect(ws.terminate).toHaveBeenCalled();
 		expectLatestStatus(harness, 'disconnected');
 	});
 

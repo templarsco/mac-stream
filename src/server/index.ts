@@ -121,6 +121,10 @@ ffmpeg.on('restart', (attempt: number) => {
 	console.log(`[ffmpeg] Scheduling restart (attempt ${attempt})`);
 });
 
+ffmpeg.on('log', (line: string) => {
+	console.log(`[ffmpeg] ${line}`);
+});
+
 ffmpeg.on('stats', (stats) => {
 	if (stats.frame % 300 === 0) {
 		console.log(

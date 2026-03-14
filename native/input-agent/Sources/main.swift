@@ -206,7 +206,8 @@ func handleScroll(_ event: InputEvent) {
 			units: .pixel,
 			wheelCount: 2,
 			wheel1: Int32(deltaY),
-			wheel2: Int32(deltaX)
+			wheel2: Int32(deltaX),
+			wheel3: 0
 		)
 	else {
 		log("Failed to create scroll CGEvent")

@@ -1,6 +1,6 @@
 {
 	"name": "mac-stream",
-	"version": "0.1.0",
+	"version": "1.0.2",
 	"description": "High-performance screen streaming from macOS to Windows over Tailscale",
 	"type": "module",
 	"main": "dist/client/main.cjs",
