@@ -1,0 +1,40 @@
+{
+	"name": "mac-stream",
+	"version": "0.1.0",
+	"description": "High-performance screen streaming from macOS to Windows over Tailscale",
+	"type": "module",
+	"engines": {
+		"node": ">=20.0.0"
+	},
+	"scripts": {
+		"build": "tsup",
+		"build:server": "tsup src/server/index.ts --format esm --dts --out-dir dist/server",
+		"build:client": "tsup src/client/main.ts src/client/preload.ts --format esm --out-dir dist/client --external electron && tsup src/client/renderer.ts --format iife --out-dir dist/client",
+		"dev": "tsx src/server/index.ts",
+		"start:client": "electron dist/client/main.js",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"lint": "biome check src/ tests/",
+		"lint:fix": "biome check --write src/ tests/",
+		"format": "biome format --write src/ tests/",
+		"typecheck": "tsc --noEmit",
+		"typecheck:client": "tsc --noEmit -p src/client/tsconfig.json"
+	},
+	"dependencies": {
+		"clipboardy": "^4.0.0",
+		"execa": "^9.5.0",
+		"mpegts.js": "^1.7.0",
+		"ws": "^8.18.0"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^1.9.0",
+		"@types/node": "^22.0.0",
+		"@types/ws": "^8.5.0",
+		"electron": "^33.0.0",
+		"tsup": "^8.3.0",
+		"tsx": "^4.19.0",
+		"typescript": "^5.7.0",
+		"vitest": "^2.1.0"
+	},
+	"license": "MIT"
+}

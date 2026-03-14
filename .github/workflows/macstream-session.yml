@@ -1,0 +1,201 @@
+name: MacStream Remote Session
+
+# Manual trigger only (GitHub UI or CLI):
+#   UI: Actions -> MacStream Remote Session -> Run workflow
+#   CLI: gh workflow run "MacStream Remote Session" -f client_ip=100.x.y.z -f duration_hours=6 -f resolution=1920x1080 -f fps=60 -f bitrate=6000
+on:
+  workflow_dispatch:
+    inputs:
+      client_ip:
+        description: "Tailscale IPv4 of the Windows client (example: 100.101.102.103)"
+        required: true
+        type: string
+      duration_hours:
+        description: "Session duration in hours"
+        required: false
+        default: "6"
+        type: string
+      resolution:
+        description: "Stream resolution as WIDTHxHEIGHT"
+        required: false
+        default: "1920x1080"
+        type: string
+      fps:
+        description: "Video FPS"
+        required: false
+        default: "60"
+        type: string
+      bitrate:
+        description: "Video bitrate in kbps"
+        required: false
+        default: "6000"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  macstream:
+    name: Start MacStream session
+    runs-on: macos-14
+    timeout-minutes: ${{ fromJSON(github.event.inputs.duration_hours || '6') * 60 }}
+    env:
+      CLIENT_IP: ${{ github.event.inputs.client_ip }}
+      DURATION_HOURS: ${{ github.event.inputs.duration_hours || '6' }}
+      RESOLUTION: ${{ github.event.inputs.resolution || '1920x1080' }}
+      FPS: ${{ github.event.inputs.fps || '60' }}
+      BITRATE: ${{ github.event.inputs.bitrate || '6000' }}
+      WS_PORT: "8765"
+      VIDEO_PORT: "5004"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install FFmpeg (Homebrew)
+        run: brew install ffmpeg
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build Swift input agent
+        run: swift build -c release
+        working-directory: native/input-agent
+
+      # TCC NOTES:
+      # - macOS CI runners are ephemeral and heavily sandboxed; full Screen Recording / Accessibility grants
+      #   may not be possible for arbitrary binaries in all runner images.
+      # - This step is best-effort only: reset stale decisions, then attempt to pre-seed TCC.db entries.
+      # - If Apple runner security policy blocks writes, MacStream may still run but input/screen features can be limited.
+      - name: Best-effort TCC permissions bootstrap
+        shell: bash
+        run: |
+          set -euxo pipefail
+          USER_DB="$HOME/Library/Application Support/com.apple.TCC/TCC.db"
+          if [[ -f "$USER_DB" ]]; then
+            tccutil reset ScreenCapture || true
+            tccutil reset Accessibility || true
+
+            # Try to grant terminal-related binaries on CI image.
+            for service in kTCCServiceScreenCapture kTCCServiceAccessibility; do
+              for client in /bin/bash /bin/zsh /usr/bin/osascript /usr/bin/swift /usr/local/bin/node /opt/homebrew/bin/node; do
+                sqlite3 "$USER_DB" "
+                  INSERT OR REPLACE INTO access
+                  (service, client, client_type, auth_value, auth_reason, auth_version, csreq, policy_id, indirect_object_identifier_type, indirect_object_identifier, indirect_object_code_identity, flags, last_modified)
+                  VALUES
+                  ('$service', '$client', 1, 2, 4, 1, NULL, NULL, 0, 'UNUSED', NULL, 0, strftime('%s','now'));
+                " || true
+              done
+            done
+          else
+            echo "TCC DB not found on runner; skipping direct TCC bootstrap"
+          fi
+
+      - name: Build server
+        run: npm run build:server
+
+      # Required secret:
+      # - TAILSCALE_AUTHKEY: ephemeral or reusable auth key from your Tailnet admin console.
+      - name: Connect runner to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          tags: tag:ci,tag:macstream
+
+      - name: Parse resolution input
+        id: resolution
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$RESOLUTION" =~ ^([0-9]+)x([0-9]+)$ ]]; then
+            echo "width=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+            echo "height=${BASH_REMATCH[2]}" >> "$GITHUB_OUTPUT"
+          else
+            echo "Invalid resolution '$RESOLUTION'. Expected WIDTHxHEIGHT." >&2
+            exit 1
+          fi
+
+      - name: Start MacStream server in background
+        id: macstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          nohup npx tsx src/server/index.ts \
+            --client-ip "$CLIENT_IP" \
+            --port "$WS_PORT" \
+            --video-port "$VIDEO_PORT" \
+            --fps "$FPS" \
+            --width "${{ steps.resolution.outputs.width }}" \
+            --height "${{ steps.resolution.outputs.height }}" \
+            --bitrate "$BITRATE" \
+            > macstream.log 2>&1 &
+
+          SERVER_PID=$!
+          sleep 3
+          if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+            echo "MacStream failed to start. Log output:" >&2
+            cat macstream.log >&2 || true
+            exit 1
+          fi
+
+          echo "pid=$SERVER_PID" >> "$GITHUB_OUTPUT"
+
+      - name: Output connection info
+        id: connection_info
+        shell: bash
+        run: |
+          set -euo pipefail
+          TS_IP="$(tailscale ip -4 | sed -n '1p')"
+          echo "tailscale_ip=$TS_IP" >> "$GITHUB_OUTPUT"
+          echo ""
+          echo "========== MacStream Connection Info =========="
+          echo "Tailscale IP: $TS_IP"
+          echo "WebSocket control (TCP): $WS_PORT"
+          echo "Video stream (UDP): $VIDEO_PORT"
+          echo "Client allowlist IP: $CLIENT_IP"
+          echo "Server PID: ${{ steps.macstream.outputs.pid }}"
+          echo "Ready for connection"
+          echo "==============================================="
+          echo ""
+          # Firewall considerations:
+          # 1) Ensure Windows firewall allows outbound UDP $VIDEO_PORT and TCP $WS_PORT to this Tailscale IP.
+          # 2) Ensure any local endpoint security does not block tailscaled/ffmpeg/node traffic.
+
+      - name: Keep session alive until duration expires
+        shell: bash
+        run: |
+          set -euo pipefail
+          PID="${{ steps.macstream.outputs.pid }}"
+          DURATION_SECONDS=$(( DURATION_HOURS * 3600 ))
+          END_TS=$(( $(date +%s) + DURATION_SECONDS ))
+
+          echo "Keeping session alive for ${DURATION_HOURS}h (${DURATION_SECONDS}s)..."
+          while [[ "$(date +%s)" -lt "$END_TS" ]]; do
+            if ! kill -0 "$PID" 2>/dev/null; then
+              echo "MacStream process exited early (pid=$PID)." >&2
+              echo "--- macstream.log ---"
+              cat macstream.log || true
+              exit 1
+            fi
+
+            REMAINING=$(( END_TS - $(date +%s) ))
+            echo "Session active. Remaining seconds: $REMAINING"
+            sleep 30
+          done
+
+          echo "Duration reached. Stopping MacStream..."
+          kill "$PID" 2>/dev/null || true
+          wait "$PID" 2>/dev/null || true
+
+      - name: Upload MacStream logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macstream-logs
+          path: macstream.log

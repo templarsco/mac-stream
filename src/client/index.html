@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="Content-Security-Policy"
+		content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'">
+	<title>MacStream</title>
+	<style>
+		* { margin: 0; padding: 0; box-sizing: border-box; }
+
+		body {
+			background: #0a0a0a;
+			color: #e0e0e0;
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+			overflow: hidden;
+			height: 100vh;
+			display: flex;
+			flex-direction: column;
+		}
+
+		#toolbar {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			padding: 8px 16px;
+			background: #141414;
+			border-bottom: 1px solid #2a2a2a;
+			flex-shrink: 0;
+			z-index: 10;
+		}
+
+		#toolbar input {
+			background: #1e1e1e;
+			border: 1px solid #333;
+			color: #e0e0e0;
+			padding: 6px 12px;
+			border-radius: 4px;
+			font-size: 14px;
+			width: 220px;
+			outline: none;
+			transition: border-color 0.15s;
+		}
+
+		#toolbar input:focus {
+			border-color: #2563eb;
+		}
+
+		#toolbar input:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
+		}
+
+		#toolbar button {
+			padding: 6px 16px;
+			border: none;
+			border-radius: 4px;
+			font-size: 14px;
+			font-weight: 500;
+			cursor: pointer;
+			transition: background 0.15s;
+		}
+
+		#connect-btn {
+			background: #2563eb;
+			color: #fff;
+		}
+		#connect-btn:hover:not(:disabled) { background: #1d4ed8; }
+		#connect-btn:disabled { background: #333; color: #666; cursor: not-allowed; }
+
+		#disconnect-btn {
+			background: #dc2626;
+			color: #fff;
+		}
+		#disconnect-btn:hover:not(:disabled) { background: #b91c1c; }
+		#disconnect-btn:disabled { background: #333; color: #666; cursor: not-allowed; }
+
+		.status-bar {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			margin-left: auto;
+			font-size: 13px;
+			color: #666;
+			font-family: 'Consolas', 'Monaco', 'Cascadia Code', monospace;
+		}
+
+		.status-bar .separator { color: #333; }
+
+		#connection-status { font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+		.status-disconnected { color: #666; }
+		.status-connecting { color: #f59e0b; }
+		.status-connected { color: #22c55e; }
+		.status-streaming { color: #22c55e; }
+		.status-error { color: #ef4444; }
+
+		#stream-container {
+			flex: 1;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			background: #000;
+			position: relative;
+			overflow: hidden;
+		}
+
+		#stream-canvas {
+			max-width: 100%;
+			max-height: 100%;
+			image-rendering: auto;
+		}
+
+		#placeholder {
+			position: absolute;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 12px;
+			color: #444;
+			font-size: 15px;
+			user-select: none;
+		}
+
+		#placeholder .title {
+			font-size: 18px;
+			font-weight: 500;
+			color: #555;
+		}
+
+		#placeholder .subtitle {
+			font-size: 13px;
+			color: #3a3a3a;
+		}
+
+		#overlay {
+			position: absolute;
+			top: 12px;
+			right: 12px;
+			background: rgba(0, 0, 0, 0.75);
+			padding: 6px 10px;
+			border-radius: 4px;
+			font-size: 11px;
+			font-family: 'Consolas', 'Monaco', 'Cascadia Code', monospace;
+			color: #888;
+			pointer-events: none;
+			opacity: 0;
+			transition: opacity 0.2s;
+		}
+
+		#stream-container:hover #overlay {
+			opacity: 1;
+		}
+	</style>
+</head>
+<body>
+	<div id="toolbar">
+		<input type="text" id="server-ip" placeholder="Server IP (e.g. 100.x.x.x)" spellcheck="false" />
+		<button id="connect-btn">Connect</button>
+		<button id="disconnect-btn" disabled>Disconnect</button>
+		<div class="status-bar">
+			<span id="connection-status" class="status-disconnected">disconnected</span>
+			<span class="separator">|</span>
+			<span id="fps-counter">-- FPS</span>
+			<span class="separator">|</span>
+			<span id="latency-counter">-- ms</span>
+		</div>
+	</div>
+	<div id="stream-container">
+		<canvas id="stream-canvas" width="1920" height="1080"></canvas>
+		<div id="placeholder">
+			<span class="title">MacStream</span>
+			<span class="subtitle">Enter server IP and click Connect to start streaming</span>
+		</div>
+		<div id="overlay"></div>
+	</div>
+	<script src="renderer.js"></script>
+</body>
+</html>
